@@ -7,8 +7,8 @@
   library(ggplot2)
   library(psych)
   library(tidyr)
-  library(gridExtra)
-  library(spotifyr)
+  #library(gridExtra)
+  #library(spotifyr)
 }
 
 # Custom functions
@@ -102,10 +102,73 @@
   }
   
   # F3 turns 
+  F3_factor_analysis <- function(df1, rotation_type = "varimax") {
+    #keep only these columns
+    Component_names <- c(
+      "Acousticness",
+      "Danceability",
+      "Liveness",
+      "Instrumentalness",
+      "Energy",
+      "Loudness",
+      "Speechiness",
+      "Tempo",
+      "Valence"
+    )
+    df1 <- df1 %>% #drop columns
+      select(one_of(Component_names))
+    
+    Clusters1 <- df1[, Component_names]
+    CORClusters1 <- cor(Clusters1, use = "complete.obs")
+    
+    # Perform factor analysis
+    FA <- fa.parallel(CORClusters1, n.obs = nrow(Clusters1))
+    PCA1 <- principal(CORClusters1, nfactors = FA$nfact, rotate = rotation_type, scores = TRUE)
+    
+    # Convert loadings to a data frame
+    Profile1 <- PCA1$loadings
+    Profile1 <- Profile1[1:which(rownames(loadings) == "Valence"), , drop = FALSE]
+    Profile1 <- as.data.frame(Profile1)
+    
+    # Prepare table for Spotify metrics using .4 as rule of thumb
+    Profile1 <- Profile1 %>%
+      mutate_all(~ case_when(
+        . < -0.39 ~ -100,
+        . > 0.39 ~ 100,
+        TRUE ~ 0
+      ))
+    
+    # Run Summary table function to get profile values as table
+    result <- F2_summary_table(df1)
+    summary_table <- result$summary_table
+    summary_table <- summary_table %>%
+      select(Components, Q1, Q3)
+    
+    # Quick function to replace values marked as strong correlations
+    mutate_profile1 <- function(value, q1, q3) {
+      case_when(
+        value == 0 ~ NA_real_,
+        value == -100 ~ q1,
+        value == 100 ~ q3,
+        TRUE ~ value
+      )
+    }
+    
+    # Use quick function to add columns with Q1 or Q3 values to be sent to Spotify API
+    Profile1 <- Profile1 %>%
+      mutate(across(everything(), ~ mutate_profile1(.x, summary_table$Q1, summary_table$Q3), .names = "new_{.col}"))
+    
+    #return(list(PCA1 = PCA1, FA = FA, num_factors = num_factors, factor_loadings = factor_loadings))
+    
+    # Convert data frame to JSON
+    profile_json <- toJSON(Profile1, pretty = TRUE)
+    
+    return(list(PCA1 = PCA1, profile_json = profile_json))
+  }
   
 }
 
-#* @post /SummaryTable
+#* @get /summary_table
 #* Spotify top 100 as JSON
 #* @param input_data Input top 100 as JSON
 #* @serializer json
@@ -114,4 +177,14 @@ function(input_data) {
   SumTableAndJSON <- F2_summary_table(result)
   SumTableAndJSON$summary_table
   #SumTableAndJSON$summary_json
+}
+
+#* @get /cfa
+#* Profile through CFA analysis based on Spotify top 100
+#* @param input_data Input top 100 as JSON
+#* @serializer json
+function(input_data) {
+  result <- F1_json_df(input_data)
+  profile_cfa <- F3_factor_analysis(result)
+  profile_cfa$profile_json
 }
