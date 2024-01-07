@@ -1,17 +1,17 @@
-# Install and load the plumber library
-# install.packages("plumber")
-{library(plumber)
+#Run packages
+{
+  library(plumber)
   library(jsonlite)
   library(lavaan)
   library(corrplot)
   library(ggplot2)
   library(psych)
-  library(tidyr)
+  #library(tidyr)
+  library(dplyr)
   #library(gridExtra)
   #library(spotifyr)
 }
-
-# Custom functions
+#Run custom functions
 {
   # F1 turn json into R DF
   F1_json_df <- function(input_data) {
@@ -19,7 +19,8 @@
     return(df1)
   }
   
-  # F2 turns F1 output into summary statistics as R table and JSON
+  # F2 turns F1 output into a list containing a summary statistics
+  # as an R table (summary_table) and as a JSON (summary_json)
   F2_summary_table <- function(df1) {
     component_names <- c(
       "Acousticness",
@@ -101,8 +102,8 @@
     return(list(summary_table = summary_table, summary_json = summary_json))
   }
   
-  # F3 turns 
-  F3_factor_analysis <- function(df1, rotation_type = "varimax") {
+  # F3 turns JSON into ...
+  F3_factor_analysis_varimax <- function(df1) {
     #keep only these columns
     Component_names <- c(
       "Acousticness",
@@ -123,19 +124,20 @@
     
     # Perform factor analysis
     FA <- fa.parallel(CORClusters1, n.obs = nrow(Clusters1))
-    PCA1 <- principal(CORClusters1, nfactors = FA$nfact, rotate = rotation_type, scores = TRUE)
+    PCA1 <- principal(CORClusters1, nfactors = FA$nfact, rotate = "varimax", scores = TRUE)
     
     # Convert loadings to a data frame
     Profile1 <- PCA1$loadings
-    Profile1 <- Profile1[1:which(rownames(loadings) == "Valence"), , drop = FALSE]
+    # Cut off anything below "Valence" row
+    Profile1 <- Profile1[1:which(trimws(rownames(PCA1$loadings)) == "Valence"), , drop = FALSE]
     Profile1 <- as.data.frame(Profile1)
     
     # Prepare table for Spotify metrics using .4 as rule of thumb
     Profile1 <- Profile1 %>%
       mutate_all(~ case_when(
-        . < -0.39 ~ -100,
-        . > 0.39 ~ 100,
-        TRUE ~ 0
+        . < -0.39 ~ -100, #-100 for negative + 'significant' correlation
+        . > 0.39 ~ 100, #100 for postive + 'significant' correlation
+        TRUE ~ 0 #0 for 'non-significant' correlation
       ))
     
     # Run Summary table function to get profile values as table
@@ -167,6 +169,16 @@
   }
   
 }
+#Test area
+{
+  #Test_DF <- F1_json_df("~/Documents/GitHub/r-api/output.json")
+  #Test_Sum_Table <- F2_summary_table(Test_DF)
+  #View(Test_Sum_Table[["summary_table"]])
+  #result <- F1_json_df("~/Documents/GitHub/r-api/output.json")
+  #profile_cfa <- F3_factor_analysis_varimax(result)
+  #profile_cfa$profile_json
+}
+
 
 #* @get /summary_table
 #* Spotify top 100 as JSON
@@ -185,6 +197,6 @@ function(input_data) {
 #* @serializer json
 function(input_data) {
   result <- F1_json_df(input_data)
-  profile_cfa <- F3_factor_analysis(result)
+  profile_cfa <- F3_factor_analysis_varimax(result)
   profile_cfa$profile_json
 }
