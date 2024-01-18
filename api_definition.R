@@ -19,7 +19,7 @@
 {
   # F1 turn json into R DF
   F1_json_df <- function(input_data) {
-    df1 <- fromJSON(input_data)
+    df1 <- input_data
     return(df1)
   }
   
@@ -188,7 +188,8 @@
 #* Spotify top 100 as JSON
 #* @param input_data Input top 100 as JSON
 #* @serializer json
-function(input_data) {
+function(req) {
+  input_data = req$body
   result <- F1_json_df(input_data)
   SumTableAndJSON <- F2_summary_table(result)
   SumTableAndJSON$summary_table
@@ -199,7 +200,8 @@ function(input_data) {
 #* Profile through CFA analysis based on Spotify top 100
 #* @param input_data Input top 100 as JSON
 #* @serializer json
-function(input_data) {
+function(req) {
+  input_data = req$body
   result <- F1_json_df(input_data)
   profile_cfa <- F3_factor_analysis_varimax(result)
   profile_cfa$profile_json
