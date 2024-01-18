@@ -186,7 +186,7 @@
 
 #* @post /summary_table
 #* Spotify top 100 as JSON
-#* @param input_data Input top 100 as JSON
+#* @param body:object
 #* @serializer json
 function(req) {
   input_data = req$body
@@ -198,7 +198,7 @@ function(req) {
 
 #* @post /cfa
 #* Profile through CFA analysis based on Spotify top 100
-#* @param input_data Input top 100 as JSON
+#* @param body:object
 #* @serializer json
 function(req) {
   input_data = req$body
