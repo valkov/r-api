@@ -17,6 +17,7 @@
 3.  git pull
 4.  docker build -t r-api -f Dockerfile .
 5.  docker run -p 8000:8000 r-api:latest
+6.  to restart: run "docker ps" get container_id and then 'docker restart {container_id}'
 
 ## result
 
